@@ -25,7 +25,7 @@ window.onload = function () {
 		headers.append("Authorization", `Bearer ${token}`);
 		headers.append("Client-Id", clientId);
 		Promise.allSettled([
-			fetch("GET https://api.twitch.tv/helix/chat/badges/global", { headers }).then((res) =>
+			fetch("https://api.twitch.tv/helix/chat/badges/global", { headers }).then((res) =>
 				res.json()
 			),
 			fetch("https://api.twitch.tv/helix/chat/badges?broadcaster_id=" + channelId, { headers }).then(
