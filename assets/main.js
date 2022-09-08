@@ -1,6 +1,8 @@
 window.onload = function () {
 	const limit = 100;
 	const channel = localStorage.getItem("twitch-channel") || "xogum";
+	const channelId = localStorage.getItem("twitch-channel-id");
+	const clientId = localStorage.getItem("twitch-client-id");
 	const token = localStorage.getItem("twitch-token");
 	const thirdPartyEmotes = {};
 	Promise.allSettled([
@@ -17,6 +19,28 @@ window.onload = function () {
 			}
 		}
 	});
+	const badges = {};
+	if (token && !!token.length && channelId && !!channelId.length) {
+		const headers = new Headers();
+		headers.append("Authorization", `Bearer ${token}`);
+		headers.append("Client-Id", clientId);
+		Promise.allSettled([
+			fetch("GET https://api.twitch.tv/helix/chat/badges/global", { headers }).then((res) =>
+				res.json()
+			),
+			fetch("https://api.twitch.tv/helix/chat/badges?broadcaster_id=" + channelId, { headers }).then(
+				(res) => res.json()
+			),
+		]).then((results) => {
+			for (const result of results) {
+				if (result.status === "fulfilled") {
+					for (const data of result.value) {
+						console.log(data);
+					}
+				}
+			}
+		});
+	}
 	const scroll = () => {
 		document.scrollingElement.scrollTop = document.scrollingElement.scrollHeight;
 	};
@@ -187,6 +211,7 @@ window.onload = function () {
 		const div = document.createElement("div");
 		div.id = message.id;
 		div.className = "message";
+		div.classList.add(message.name);
 		if (hasMention) {
 			div.classList.add("mention");
 		}
@@ -264,29 +289,36 @@ window.onload = function () {
 		}
 		const client = new tmi.Client(clientData);
 		client.connect();
+		client.on("connected", (address, port) => {
+			console.log(`* Connected to ${address}:${port} as ${client.getUsername()}`);
+		});
 		client.on("message", (_, tags, message, self) => {
 			console.log(tags);
 			if (self) return;
 			const data = {
+				id: `${tags["user-id"]}-${tags["msg-id"]}-${tags["tmi-sent-ts"]}`,
+				text: parseMessage(message, tags.emotes),
 				name: tags["display-name"],
 				color: tags.color || "#eee",
 				badges: tags.badges ? Object.values(tags.badges) : [],
-				text: parseMessage(message, tags.emotes),
-				id: tags.id || tags["tmi-sent-ts"],
+				highlight: tags["msg-id"] === "highlighted-message",
 				timestamp: tags["tmi-sent-ts"],
 			};
 			addMessage(data);
-			localStorage.clear();
 		});
 		client.on("clearchat", () => {
 			const messages = document.getElementsByClassName("message");
 			for (const message of messages) {
-				message.remove();
+				message.style.opacity = 0.5;
 			}
-			sessionStorage.removeItem("chatMessages");
 		});
 		client.on("deleteMessage", (_, tags) => {
-			removeMessage(tags.id);
+			console.log(tags);
+			const id = `${tags["target-user-id"]}-${tags["target-msg-id"]}-${tags["tmi-sent-ts"]}`;
+			const message = document.getElementById(id);
+			if (message) {
+				message.style.opacity = 0.5;
+			}
 		});
 	}
 };
