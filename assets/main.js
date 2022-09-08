@@ -210,7 +210,6 @@ window.onload = async function () {
 		const div = document.createElement("div");
 		div.id = message.id;
 		div.className = "message";
-		div.classList.add(message.name);
 		if (hasMention) {
 			div.classList.add("mention");
 		}
@@ -224,16 +223,16 @@ window.onload = async function () {
 		timestamp.title = timestampToDate(message.timestamp);
 		user.appendChild(timestamp);
 		// badges
-		const badges = document.createElement("span");
-		badges.className = "badges";
+		const badgeImages = document.createElement("span");
+		badgeImages.className = "badges";
 		for (const [badgeName, badgeVersion] of Object.entries(message.badges || {})) {
 			if (badges[badgeName] && badges[badgeName][badgeVersion]) {
 				const img = document.createElement("img");
 				img.src = badges[badgeName][badgeVersion];
-				badges.appendChild(img);
+				badgeImages.appendChild(img);
 			}
 		}
-		user.appendChild(badges);
+		user.appendChild(badgeImages);
 		// name
 		const name = document.createElement("span");
 		name.className = "name";
