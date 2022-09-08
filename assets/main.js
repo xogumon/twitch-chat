@@ -1,11 +1,11 @@
-window.onload = function () {
+window.onload = async function () {
 	const limit = 100;
 	const channel = localStorage.getItem("twitch-channel") || "xogum";
 	const channelId = localStorage.getItem("twitch-channel-id");
 	const clientId = localStorage.getItem("twitch-client-id");
 	const token = localStorage.getItem("twitch-token");
 	const thirdPartyEmotes = {};
-	Promise.allSettled([
+	await Promise.allSettled([
 		fetch("https://emotes.adamcy.pl/v1/global/emotes/7tv.bttv.ffz").then((res) => res.json()),
 		fetch("https://emotes.adamcy.pl/v1/channel/xogum/emotes/7tv.bttv.ffz").then((res) => res.json()),
 	]).then((results) => {
@@ -24,7 +24,7 @@ window.onload = function () {
 		const headers = new Headers();
 		headers.append("Authorization", `Bearer ${token}`);
 		headers.append("Client-Id", clientId);
-		Promise.allSettled([
+		await Promise.allSettled([
 			fetch("https://api.twitch.tv/helix/chat/badges/global", { headers })
 				.then((res) => res.json())
 				.catch(console.error),
@@ -44,6 +44,7 @@ window.onload = function () {
 			}
 		});
 	}
+	console.log(badges);
 	const scroll = () => {
 		document.scrollingElement.scrollTop = document.scrollingElement.scrollHeight;
 	};
@@ -57,6 +58,7 @@ window.onload = function () {
 					">": "&gt;",
 					'"': "&quot;",
 					"'": "&#39;",
+					"\\": "",
 				}[tag])
 		);
 	const regexEscape = (str) => {
@@ -297,12 +299,12 @@ window.onload = function () {
 			console.log(tags);
 			if (self) return;
 			const data = {
-				id: `${tags["user-id"]}-${tags["msg-id"]}-${tags["tmi-sent-ts"]}`,
+				id: `${tags["user-id"]}-${tags.id}-${tags["tmi-sent-ts"]}`,
 				text: parseMessage(message, tags.emotes),
 				name: tags["display-name"],
 				color: tags.color || "#eee",
 				badges: tags.badges ? Object.values(tags.badges) : [],
-				highlight: tags["msg-id"] === "highlighted-message",
+				highlight: tags.id === "highlighted-message",
 				timestamp: tags["tmi-sent-ts"],
 			};
 			addMessage(data);
