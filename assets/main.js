@@ -25,10 +25,10 @@ window.onload = function () {
 		headers.append("Authorization", `Bearer ${token}`);
 		headers.append("Client-Id", clientId);
 		Promise.allSettled([
-			fetch("https://api.twitch.tv/helix/chat/badges/global", { headers }).then((res) => res.json()),
+			fetch("https://api.twitch.tv/helix/chat/badges/global", { headers }).then((res) => res.json()).catch(console.error),
 			fetch("https://api.twitch.tv/helix/chat/badges?broadcaster_id=" + channelId, { headers }).then(
 				(res) => res.json()
-			),
+			).catch(console.error),
 		]).then((results) => {
 			for (const result of results) {
 				if (result.status === "fulfilled") {
@@ -310,12 +310,30 @@ window.onload = function () {
 				message.style.opacity = 0.5;
 			}
 		});
-		client.on("deleteMessage", (_, tags) => {
+		client.on("messagedeleted", (channel, username, deletedMessage, tags) => {
 			const id = tags["target-msg-id"];
 			const message = document.querySelectorAll(".message").find((m) => m.id.includes(id));
 			if (message) {
 				message.style.opacity = 0.5;
 			}
 		});
+		client.on("ban", (channel, username, reason, tags) => {
+			const id = tags["target-user-id"];
+			const messages = document.querySelectorAll(".message").filter((m) => m.id.includes(id));
+      for (const message of messages) {
+        message.style.opacity = 0.5;
+      }
+		});
+		client.on("timeout", (channel, username, reason, duration, tags) => {
+			const id = tags["target-user-id"];
+      const messages = document.querySelectorAll(".message").filter((m) => m.id.includes(id));
+      for (const message of messages) {
+        message.style.opacity = 0.5;
+      }
+		});
+    client.on("disconnected", (reason) => {
+      console.log(`* Disconnected: ${reason}`);
+    });
+
 	}
 };
