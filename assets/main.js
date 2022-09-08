@@ -67,9 +67,7 @@ window.onload = function () {
 		let match,
 			indices = [];
 		const regex = new RegExp(regexEscape(find), flags);
-		console.log(regex);
 		while ((match = regex.exec(str)) !== null) {
-			console.log(match);
 			const before = /\s|undefined/.test(str[match.index - 1]);
 			const after = /\s|undefined/.test(str[match.index + findLen]);
 			if (before && after) {
@@ -162,15 +160,12 @@ window.onload = function () {
 		text = text.split("");
 		try {
 			emotes.map(([url, indices]) => {
-				console.log("indices", indices);
-				console.log("url", url);
 				indices.map((i) => {
 					const [start, end] = i.split("-").map((n) => parseInt(n));
 					const emoteText = text.slice(start, end + 1).join("");
 					const emoteTextEscaped = regexEscape(emoteText);
 					const emoteImg = `<img class="emote" src="${url}" alt="${emoteTextEscaped}" title="${emoteTextEscaped}">`;
 					const arrayLength = end - start;
-					console.log(arrayLength, start, end);
 					text = text
 						.slice(0, start)
 						.concat(emoteImg)
