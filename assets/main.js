@@ -183,19 +183,6 @@ window.onload = function () {
 		}
 		return text.join("");
 	};
-	const parseBadges = (userBadges) => {
-		const badges = document.createElement("span");
-		badges.classList.add("badges");
-		userBadges.map((badge) => {
-			const badgeEl = document.createElement("img");
-			badgeEl.classList.add("badge");
-			badgeEl.src = badge.url;
-			badgeEl.alt = badge.name;
-			badgeEl.title = badge.name;
-			badges.appendChild(badgeEl);
-		});
-		return badges;
-	};
 	const parseMessage = (text, emotes) => {
 		const userEmotes = Object.entries(emotes || {})
 			.map(([id, indices]) => {
@@ -244,10 +231,12 @@ window.onload = function () {
 		const badges = document.createElement("span");
 		badges.className = "badges";
 		for (const badge of message.badges) {
-			const img = document.createElement("img");
 			const [name, version] = Object.entries(badge);
-			img.src = badges[name][version];
-			badges.appendChild(img);
+			if (badges[name] && badges[name][version]) {
+				const img = document.createElement("img");
+				img.src = badges[name][version];
+				badges.appendChild(img);
+			}
 		}
 		user.appendChild(badges);
 		// user name
