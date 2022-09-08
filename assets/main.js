@@ -25,9 +25,7 @@ window.onload = function () {
 		headers.append("Authorization", `Bearer ${token}`);
 		headers.append("Client-Id", clientId);
 		Promise.allSettled([
-			fetch("https://api.twitch.tv/helix/chat/badges/global", { headers }).then((res) =>
-				res.json()
-			),
+			fetch("https://api.twitch.tv/helix/chat/badges/global", { headers }).then((res) => res.json()),
 			fetch("https://api.twitch.tv/helix/chat/badges?broadcaster_id=" + channelId, { headers }).then(
 				(res) => res.json()
 			),
@@ -313,9 +311,8 @@ window.onload = function () {
 			}
 		});
 		client.on("deleteMessage", (_, tags) => {
-			console.log(tags);
-			const id = `${tags["target-user-id"]}-${tags["target-msg-id"]}-${tags["tmi-sent-ts"]}`;
-			const message = document.getElementById(id);
+			const id = tags["target-msg-id"];
+			const message = document.querySelectorAll(".message").find((m) => m.id.includes(id));
 			if (message) {
 				message.style.opacity = 0.5;
 			}

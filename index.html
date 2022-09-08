@@ -137,6 +137,8 @@
 						validateToken(hash.access_token).then((res) => {
 							if (res.client_id === clientID) {
 								localStorage.setItem("twitch-token", hash.access_token);
+								localStorage.setItem("twitch-channel", res.login);
+								localStorage.setItem("twitch-channel-id", res.user_id);
 								localStorage.removeItem("twitch-token-state");
 								window.location.reload();
 							}
@@ -155,7 +157,6 @@
 						window.location.href = authUrl();
 					} else {
 						localStorage.setItem("twitch-channel", res.login);
-						localStorage.setItem("twitch-channel-id", res.user_id);
 						localStorage.setItem("twitch-client-id", res.client_id);
 					}
 				});
