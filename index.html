@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link
+			href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css"
+			rel="stylesheet"
+			integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HGKIhSkIHeL5AyhkYV8i59U5AR6csBvApHHNl/vI1Bx"
+			crossorigin="anonymous" />
+		<title>Chat</title>
+		<style>
+			body {
+				background-color: #18181b;
+				color: #efeff1;
+				overflow-y: scroll;
+			}
+
+			::-webkit-scrollbar {
+				width: 5px;
+			}
+
+			::-webkit-scrollbar-thumb {
+				background: #444;
+			}
+
+			::-webkit-scrollbar-track {
+				background: transparent;
+			}
+
+			#chat {
+				scroll-snap-type: y proximity;
+				/* flex-direction: column-reverse; */
+			}
+
+			#chat > .message {
+				padding: 10px;
+			}
+
+			#chat > .message:nth-child(odd) {
+				background-color: #0a0a0a;
+			}
+
+			#chat > .message:nth-child(even) {
+				background-color: #1a1a1a;
+			}
+
+			#chat > .message:last-child {
+				scroll-snap-align: end;
+			}
+
+			#chat > .message.mention {
+				background-color: #411111;
+			}
+
+			#chat > .message a,
+			#chat > .message a:visited,
+			#chat > .message a:active,
+			#chat > .message a:hover {
+				color: #9377ff;
+				text-decoration: none;
+			}
+
+			#chat > .message a:hover {
+				text-decoration: underline;
+			}
+
+			#chat > .message > .user {
+				font-size: 1rem;
+				color: #999;
+			}
+
+			#chat > .message > .user > .name {
+				font-weight: bold;
+				font-size: 1.2rem;
+			}
+
+			#chat > .message > .user > .timestamp {
+				margin-right: 0.6rem;
+				font-size: 0.8rem;
+				color: #4f4f52;
+			}
+
+			#chat > .message > .text {
+				font-size: 1rem;
+				word-wrap: break-word;
+			}
+
+			#chat > .message > .text::before {
+				content: ":";
+				margin-right: 0.6rem;
+			}
+
+			#chat > .message > .text > .emote {
+				height: auto;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div class="container-fluid">
+			<div id="chat" class="row"></div>
+		</div>
+		<script>
+			const token = localStorage.getItem("twitch-token");
+			const channel = localStorage.getItem("twitch-channel");
+			const clientID = "8p2was5nbzzf1n8j3yqkcgvvt9hnfe";
+			const redirectURI = "https://chat.xog.one/";
+			const scopes = ["chat:read", "chat:edit", "whispers:read", "whispers:edit"];
+			const authUrl = () => {
+				const state = Math.random().toString(36).substring(2);
+				sessionStorage.setItem("twitch-token-state", state);
+				return `https://id.twitch.tv/oauth2/authorize?client_id=${clientID}&redirect_uri=${redirectURI}&response_type=token&scope=${scopes.join(
+					"%20"
+				)}&state=${state}`;
+			};
+			const validateToken = (token) => {
+				const url = `https://id.twitch.tv/oauth2/validate`;
+				const headers = new Headers();
+				headers.append("Authorization", `OAuth ${token}`);
+				return fetch(url, { headers }).then((res) => res.json());
+			};
+			if (!token || !channel) {
+				if (window.location.hash) {
+					const hash = window.location.hash
+						.substring(1)
+						.split("&")
+						.reduce((initial, item) => {
+							if (item) {
+								const parts = item.split("=");
+								initial[parts[0]] = decodeURIComponent(parts[1]);
+							}
+							return initial;
+						}, {});
+					window.location.hash = "";
+					if (hash.access_token && hash.state === sessionStorage.getItem("twitch-token-state")) {
+						validateToken(hash.access_token).then((res) => {
+							if (res.client_id === clientID) {
+								localStorage.setItem("twitch-token", hash.access_token);
+								localStorage.setItem("twitch-channel", res.login);
+								localStorage.setItem("twitch-channel-id", res.user_id);
+								localStorage.removeItem("twitch-token-state");
+								window.location.reload();
+							}
+						});
+					}
+				} else {
+					window.location.href = authUrl();
+				}
+			} else {
+				validateToken(token).then((res) => {
+					if (res.client_id !== clientID) {
+						localStorage.removeItem("twitch-token");
+						localStorage.removeItem("twitch-channel");
+						window.location.href = authUrl();
+					}
+				});
+			}
+		</script>
+		<script defer src="assets/tmi.min.js"></script>
+		<script defer src="assets/main.js"></script>
+	</body>
+</html>
