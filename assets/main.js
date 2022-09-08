@@ -223,19 +223,18 @@ window.onload = async function () {
 		timestamp.innerText = timestampToTime(message.timestamp);
 		timestamp.title = timestampToDate(message.timestamp);
 		user.appendChild(timestamp);
-		// user badges
+		// badges
 		const badges = document.createElement("span");
 		badges.className = "badges";
-		for (const badge of message.badges) {
-			const [name, version] = Object.entries(badge);
-			if (badges[name] && badges[name][version]) {
+		for (const [badgeName, badgeVersion] of Object.entries(message.badges || {})) {
+			if (badges[badgeName] && badges[badgeName][badgeVersion]) {
 				const img = document.createElement("img");
-				img.src = badges[name][version];
+				img.src = badges[badgeName][badgeVersion];
 				badges.appendChild(img);
 			}
 		}
 		user.appendChild(badges);
-		// user name
+		// name
 		const name = document.createElement("span");
 		name.className = "name";
 		name.style.color = message.color;
@@ -302,7 +301,7 @@ window.onload = async function () {
 				text: parseMessage(message, tags.emotes),
 				name: tags["display-name"],
 				color: tags.color || "#eee",
-				badges: tags.badges ?? [],
+				badges: tags.badges ?? {},
 				highlight: tags.id === "highlighted-message",
 				timestamp: tags["tmi-sent-ts"],
 			};
