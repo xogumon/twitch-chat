@@ -32,9 +32,7 @@ window.onload = function () {
 		]).then((results) => {
 			for (const result of results) {
 				if (result.status === "fulfilled") {
-					for (const data of result.value) {
-						console.log(data);
-					}
+          console.log(result.value);
 				}
 			}
 		});
