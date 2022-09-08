@@ -44,13 +44,12 @@ window.onload = async function () {
 			}
 		});
 	}
-	console.log(badges);
 	const scroll = () => {
 		document.scrollingElement.scrollTop = document.scrollingElement.scrollHeight;
 	};
 	const htmlEscape = (str) =>
 		str.replace(
-			/[&<>"']/g,
+			/[&<>"'\\]/g,
 			(tag) =>
 				({
 					"&": "&amp;",
@@ -303,7 +302,7 @@ window.onload = async function () {
 				text: parseMessage(message, tags.emotes),
 				name: tags["display-name"],
 				color: tags.color || "#eee",
-				badges: tags.badges ? Object.values(tags.badges) : [],
+				badges: tags.badges ?? [],
 				highlight: tags.id === "highlighted-message",
 				timestamp: tags["tmi-sent-ts"],
 			};
