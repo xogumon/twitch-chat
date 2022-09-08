@@ -25,14 +25,21 @@ window.onload = function () {
 		headers.append("Authorization", `Bearer ${token}`);
 		headers.append("Client-Id", clientId);
 		Promise.allSettled([
-			fetch("https://api.twitch.tv/helix/chat/badges/global", { headers }).then((res) => res.json()).catch(console.error),
-			fetch("https://api.twitch.tv/helix/chat/badges?broadcaster_id=" + channelId, { headers }).then(
-				(res) => res.json()
-			).catch(console.error),
+			fetch("https://api.twitch.tv/helix/chat/badges/global", { headers })
+				.then((res) => res.json())
+				.catch(console.error),
+			fetch("https://api.twitch.tv/helix/chat/badges?broadcaster_id=" + channelId, { headers })
+				.then((res) => res.json())
+				.catch(console.error),
 		]).then((results) => {
 			for (const result of results) {
 				if (result.status === "fulfilled") {
-          console.log(result.value);
+					for (const badge of result.value.data) {
+						badges[badge.set_id] = badges[badge.set_id] || {};
+						for (const version of badge.versions) {
+							badges[badge.set_id][version.id] = version.image_url_1x;
+						}
+					}
 				}
 			}
 		});
@@ -176,6 +183,19 @@ window.onload = function () {
 		}
 		return text.join("");
 	};
+	const parseBadges = (userBadges) => {
+		const badges = document.createElement("span");
+		badges.classList.add("badges");
+		userBadges.map((badge) => {
+			const badgeEl = document.createElement("img");
+			badgeEl.classList.add("badge");
+			badgeEl.src = badge.url;
+			badgeEl.alt = badge.name;
+			badgeEl.title = badge.name;
+			badges.appendChild(badgeEl);
+		});
+		return badges;
+	};
 	const parseMessage = (text, emotes) => {
 		const userEmotes = Object.entries(emotes || {})
 			.map(([id, indices]) => {
@@ -225,7 +245,8 @@ window.onload = function () {
 		badges.className = "badges";
 		for (const badge of message.badges) {
 			const img = document.createElement("img");
-			//img.src = badge;
+			const [name, version] = Object.entries(badge);
+			img.src = badges[name][version];
 			badges.appendChild(img);
 		}
 		user.appendChild(badges);
@@ -318,20 +339,19 @@ window.onload = function () {
 		client.on("ban", (channel, username, reason, tags) => {
 			const id = tags["target-user-id"];
 			const messages = document.querySelectorAll(".message").filter((m) => m.id.includes(id));
-      for (const message of messages) {
-        message.style.opacity = 0.5;
-      }
+			for (const message of messages) {
+				message.style.opacity = 0.5;
+			}
 		});
 		client.on("timeout", (channel, username, reason, duration, tags) => {
 			const id = tags["target-user-id"];
-      const messages = document.querySelectorAll(".message").filter((m) => m.id.includes(id));
-      for (const message of messages) {
-        message.style.opacity = 0.5;
-      }
+			const messages = document.querySelectorAll(".message").filter((m) => m.id.includes(id));
+			for (const message of messages) {
+				message.style.opacity = 0.5;
+			}
 		});
-    client.on("disconnected", (reason) => {
-      console.log(`* Disconnected: ${reason}`);
-    });
-
+		client.on("disconnected", (reason) => {
+			console.log(`* Disconnected: ${reason}`);
+		});
 	}
 };
