@@ -299,19 +299,30 @@ window.onload = async function () {
 		for (const message of messages) {
 			const data = message.split(";").reduce((acc, cur) => {
 				const [key, value] = cur.split("=");
-				acc[key] = value;
+				acc[key.replace("@", "").trim()] = value;
 				return acc;
 			}, {});
-			data.badges = data.badges?.split(",").map((badge) => {
-				const [id, version] = badge.split("/");
-				return { [id]: version };
-			});
-			data.emotes = data.emotes?.split(",").map((emote) => {
-				const [id, positions] = emote.split(":");
-				return { [id]: positions };
-			});
-			data.message = message.split(" :")[2];
-			parsedMessages.push(data);
+			data.badges = data.badges?.split(",")?.reduce((acc, cur) => {
+				const [id, version] = cur.split("/");
+				if (id && version) {
+					acc[id] = version;
+				}
+				return acc;
+			}, {});
+			data.emotes = data.emotes?.split(",")?.reduce((acc, cur) => {
+				console.log(cur);
+				const [id, positions] = cur.split(":");
+				if (id && positions) {
+					acc[id] = positions;
+				}
+				return acc;
+			}, {});
+			data.message = data["user-type"]?.split(/PRIVMSG #[\w]+/)[1]?.trim();
+			data["message-type"] = "chat";
+			data["user-type"] = data["user-type"]?.split(":")[0]?.trim();
+			if (data.message && data.message.length > 0) {
+				parsedMessages.push(data);
+			}
 		}
 		return parsedMessages;
 	};
