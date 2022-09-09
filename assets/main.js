@@ -220,10 +220,11 @@ window.onload = async function () {
 		div.className += ` ${message.type} ${message.first ? "first" : ""}`;
 		if (message.reply) {
 			div.title = `${message.reply.user}: ${message.reply.text}`;
+			div.className += " reply";
 			div.addEventListener("click", () => {
 				Array.from(div.querySelectorAll(".message"))
 					.find((m) => m.id.includes(message.reply.id))
-					.scrollIntoView();
+					?.scrollIntoView();
 			});
 		}
 		// meta
@@ -241,7 +242,6 @@ window.onload = async function () {
 		for (const [badgeName, badgeVersion] of Object.entries(message.badges || {})) {
 			if (badges[badgeName] && badges[badgeName][badgeVersion]) {
 				const badge = badges[badgeName][badgeVersion];
-				console.log(badge, badgeName, badgeVersion);
 				if (badge && badge.url) {
 					const img = document.createElement("img");
 					img.src = badge.url;
@@ -264,6 +264,7 @@ window.onload = async function () {
 		text.className = "text";
 		text.innerHTML = message.text;
 		div.appendChild(text);
+		div.className = div.className.trim();
 		chat.appendChild(div);
 		scroll();
 	};

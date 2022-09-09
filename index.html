@@ -48,6 +48,15 @@
 				background-color: #411111;
 			}
 
+			#chat > .message.announcement {
+				background-color: #3f0c5b;
+			}
+
+			#chat > .message.reply {
+				background-color: #292929;
+				cursor: pointer;
+			}
+
 			#chat > .message:last-child {
 				scroll-snap-align: end;
 			}
@@ -83,7 +92,7 @@
 			}
 
 			#chat > .message > .user > .badges {
-				display: inline-block;
+				display: inline-flex;
 			}
 
 			#chat > .message > .user > .badges > img {
@@ -98,6 +107,10 @@
 
 			#chat > .message > .text {
 				vertical-align: bottom;
+			}
+
+			#chat > .message.action > .text {
+				font-style: italic;
 			}
 
 			#chat > .message > .text > .emote {
