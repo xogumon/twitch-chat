@@ -296,64 +296,44 @@ window.onload = async function () {
 				return data.messages;
 			});
 		const parsedMessages = [];
+		const actionMessageRegex = /^\u0001ACTION ([^\u0001]+)\u0001$/;
+		const unescapeHtml = (safe) =>
+			safe
+				.replace(/&amp;/g, "&")
+				.replace(/&lt;/g, "<")
+				.replace(/&gt;/g, ">")
+				.replace(/&quot;/g, '"')
+				.replace(/&#039;/g, "'");
 		for (const message of messages) {
 			const data = message.split(";").reduce((acc, cur) => {
 				const [key, value] = cur.split("=");
-				acc[key.replace("@", "").trim()] = value;
+				const intValue = parseInt(value);
+				acc[key.replace("@", "")] = intValue === 1 || intValue === 0 ? Boolean(intValue) : value;
 				return acc;
 			}, {});
-			data.badges = data.badges?.split(",")?.reduce((acc, cur) => {
+			data.badges = data.badges.split(",").reduce((acc, cur) => {
 				const [id, version] = cur.split("/");
-				if (id && version) {
-					acc[id] = version;
-				}
+				if (id && version) acc[id] = version;
 				return acc;
 			}, {});
-			data.emotes = data.emotes?.split(",")?.reduce((acc, cur) => {
-				console.log(cur);
+			data.emotes = data.emotes.split(",").reduce((acc, cur) => {
 				const [id, positions] = cur.split(":");
 				if (id && positions) {
-					acc[id] = positions;
+					const emote = acc[id] || [];
+					emote.push(positions);
+					acc[id] = emote;
 				}
 				return acc;
 			}, {});
-			data.message = data["user-type"]?.split(/PRIVMSG #[\w]+/)[1]?.trim();
-			data["message-type"] = "chat";
-			data["user-type"] = data["user-type"]?.split(":")[0]?.trim();
-			if (data.message && data.message.length > 0) {
-				parsedMessages.push(data);
-			}
+			const [userType, _, msgType, channel, ...textMessage] = data["user-type"].split(" ");
+			data.message = unescapeHtml(textMessage.join(" "));
+			data["msg-type"] = actionMessageRegex.test(data.message) ? "action" : msgType;
+			data["user-type"] = userType;
+			data.channel = channel;
+			if (data.message) parsedMessages.push(data);
 		}
 		return parsedMessages;
 	};
-	await fetchLatestMessages()
-		.then((messages) => {
-			console.log(messages);
-			for (const tags of messages) {
-				const data = {
-					id: `${tags["user-id"]}:${tags.id}:${tags["tmi-sent-ts"]}`,
-					type: tags["message-type"],
-					text: parseMessage(tags.message, tags.emotes),
-					name: tags["display-name"],
-					color: tags.color || "#eee",
-					badges: tags.badges ?? {},
-					highlight: tags.id === "highlighted-message",
-					timestamp: tags["tmi-sent-ts"],
-					reply: tags.hasOwnProperty("reply-parent-msg-id")
-						? {
-								id: tags["reply-parent-msg-id"],
-								user: tags["reply-parent-display-name"],
-								text: tags["reply-parent-msg-body"],
-						  }
-						: null,
-					first: tags.hasOwnProperty("first-msg") ? tags["first-msg"] : null,
-				};
-				appendMessage(data);
-			}
-		})
-		.catch((err) => {
-			console.error(err);
-		});
 	if (tmi && tmi.Client) {
 		let clientData = {
 			channels: [channel],
@@ -381,6 +361,34 @@ window.onload = async function () {
 		client.on("roomstate", async (channel, state) => {
 			console.log("* Roomstate", state);
 			await fetchBadges(state["room-id"]);
+			await fetchLatestMessages()
+				.then((messages) => {
+					console.log(messages);
+					for (const tags of messages) {
+						const data = {
+							id: `${tags["user-id"]}:${tags.id}:${tags["tmi-sent-ts"]}`,
+							type: tags["message-type"],
+							text: parseMessage(tags.message, tags.emotes || {}),
+							name: tags["display-name"],
+							color: tags.color || "#eee",
+							badges: tags.badges ?? {},
+							highlight: tags.id === "highlighted-message",
+							timestamp: tags["tmi-sent-ts"],
+							reply: tags.hasOwnProperty("reply-parent-msg-id")
+								? {
+										id: tags["reply-parent-msg-id"],
+										user: tags["reply-parent-display-name"],
+										text: tags["reply-parent-msg-body"],
+								  }
+								: null,
+							first: tags.hasOwnProperty("first-msg") ? tags["first-msg"] : null,
+						};
+						appendMessage(data);
+					}
+				})
+				.catch((err) => {
+					console.error(err);
+				});
 		});
 		client.on("message", (_, tags, message, self) => {
 			if (self) return;
