@@ -289,7 +289,7 @@ window.onload = async function () {
 		scroll();
 	};
 	const fetchLatestMessages = async () => {
-		const url = `https://recent-messages.robotty.de/api/v2/recent-messages/${channel}?limit=10`;
+		const url = `https://recent-messages.robotty.de/api/v2/recent-messages/${channel}?hide_moderated_messages=true&limit=15`;
 		const messages = await fetch(url)
 			.then((res) => res.json())
 			.then((data) => {
@@ -311,12 +311,12 @@ window.onload = async function () {
 				acc[key.replace("@", "")] = intValue === 1 || intValue === 0 ? Boolean(intValue) : value;
 				return acc;
 			}, {});
-			data.badges = data.badges.split(",").reduce((acc, cur) => {
+			data.badges = data.badges?.split(",").reduce((acc, cur) => {
 				const [id, version] = cur.split("/");
 				if (id && version) acc[id] = version;
 				return acc;
 			}, {});
-			data.emotes = data.emotes.split(",").reduce((acc, cur) => {
+			data.emotes = data.emotes?.split(",").reduce((acc, cur) => {
 				const [id, positions] = cur.split(":");
 				if (id && positions) {
 					const emote = acc[id] || [];
@@ -325,9 +325,9 @@ window.onload = async function () {
 				}
 				return acc;
 			}, {});
-			const [userType, _, msgType, channel, ...textMessage] = data["user-type"].split(" ");
-			data.message = unescapeHtml(textMessage.join(" "));
-			data["msg-type"] = actionMessageRegex.test(data.message) ? "action" : msgType;
+			const [userType, _, msgType, channel, ...textMessage] = data["user-type"]?.split(" ");
+			data.message = unescapeHtml(textMessage?.join(" "));
+			data["message-type"] = actionMessageRegex.test(data.message) ? "action" : msgType;
 			data["user-type"] = userType;
 			data.channel = channel;
 			if (data.message) parsedMessages.push(data);
