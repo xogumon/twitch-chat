@@ -47,6 +47,7 @@ window.onload = async function () {
 			});
 	};
 	await fetchBadges(); // global badges
+	console.log("badges", badges);
 	if (token && !!token.length && channelId && !!channelId.length) {
 		const headers = new Headers();
 		headers.append("Authorization", `Bearer ${token}`);
@@ -268,6 +269,15 @@ window.onload = async function () {
 		} else {
 			div.className += " odd";
 		}
+		div.className += ` ${message.type} ${message.first ? "first" : ""}`;
+		if (message.reply) {
+			div.title = `${message.reply.user}: ${message.reply.text}`;
+			div.addEventListener("click", () => {
+				Array.from(div.querySelectorAll(".message"))
+					.find((m) => m.id.includes(message.reply.id))
+					.scrollIntoView();
+			});
+		}
 		// meta
 		const user = document.createElement("span");
 		user.className = "user";
@@ -282,12 +292,14 @@ window.onload = async function () {
 		badgeImages.className = "badges";
 		for (const [badgeName, badgeVersion] of Object.entries(message.badges || {})) {
 			if (badges[badgeName] && badges[badgeName][badgeVersion]) {
-				const img = document.createElement("img");
 				const badge = badges[badgeName][badgeVersion];
-				img.src = badge.url;
-				img.alt = badge.title;
-				img.title = badge.title;
-				badgeImages.appendChild(img);
+				if (badge) {
+					const img = document.createElement("img");
+					img.src = badge.url;
+					img.alt = badge.title;
+					img.title = badge.title;
+					badgeImages.appendChild(img);
+				}
 			}
 		}
 		user.appendChild(badgeImages);
@@ -321,6 +333,14 @@ window.onload = async function () {
 			removeMessage(messages[0].id);
 		}
 	};
+	const log = (message) => {
+		const chat = document.getElementById("chat");
+		const div = document.createElement("div");
+		div.className = "message log";
+		div.innerText = message;
+		chat.appendChild(div);
+		scroll();
+	};
 	const cachedMessages = getCachedMessages();
 	if (cachedMessages) {
 		for (const message of cachedMessages) {
@@ -348,21 +368,34 @@ window.onload = async function () {
 		const client = new tmi.Client(clientData);
 		client.connect();
 		client.on("connected", (address, port) => {
+			log(`Seja bem-vindo!`);
 			console.log(`* Connected to ${address}:${port} as ${client.getUsername()}`);
+		});
+		client.on("roomstate", (channel, state) => {
+			console.log("* Roomstate", state);
 			console.log(client.globaluserstate);
+			console.log(client.userstate);
 		});
 		client.on("message", (_, tags, message, self) => {
 			console.log(tags);
 			if (self) return;
 			const data = {
 				id: `${tags["user-id"]}:${tags.id}:${tags["tmi-sent-ts"]}`,
+				type: tags["message-type"],
 				text: parseMessage(message, tags.emotes),
 				name: tags["display-name"],
 				color: tags.color || "#eee",
 				badges: tags.badges ?? {},
 				highlight: tags.id === "highlighted-message",
 				timestamp: tags["tmi-sent-ts"],
-				type: tags["message-type"],
+				reply: tags.hasOwnProperty("reply-parent-msg-id")
+					? {
+							id: tags["reply-parent-msg-id"],
+							user: tags["reply-parent-display-name"],
+							text: tags["reply-parent-msg-body"],
+					  }
+					: null,
+				first: tags.hasOwnProperty("first-msg") ? tags["first-msg"] : null,
 			};
 			addMessage(data);
 		});
@@ -372,6 +405,7 @@ window.onload = async function () {
 			for (const message of messages) {
 				message.style.opacity = 0.15;
 			}
+			log("Chat limpo!");
 		});
 		client.on("messagedeleted", (channel, username, deletedMessage, tags) => {
 			const id = tags["target-msg-id"];
@@ -379,6 +413,7 @@ window.onload = async function () {
 			if (message) {
 				message.style.opacity = 0.15;
 			}
+			log(`Mensagem de ${username} deletada!`);
 		});
 		client.on("ban", (channel, username, reason, tags) => {
 			const id = tags["target-user-id"];
@@ -388,6 +423,7 @@ window.onload = async function () {
 			for (const message of messages) {
 				message.style.opacity = 0.15;
 			}
+			log(`Usuário ${username} banido!`);
 		});
 		client.on("timeout", (channel, username, reason, duration, tags) => {
 			const id = tags["target-user-id"];
@@ -397,9 +433,11 @@ window.onload = async function () {
 			for (const message of messages) {
 				message.style.opacity = 0.15;
 			}
+			log(`Usuário ${username} limitado por ${duration} segundos!`);
 		});
 		client.on("disconnected", (reason) => {
 			console.log(`* Disconnected: ${reason}`);
+			log("Desconectado!");
 		});
 	}
 };
