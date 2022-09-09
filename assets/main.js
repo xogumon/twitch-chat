@@ -293,7 +293,8 @@ window.onload = async function () {
 		for (const [badgeName, badgeVersion] of Object.entries(message.badges || {})) {
 			if (badges[badgeName] && badges[badgeName][badgeVersion]) {
 				const badge = badges[badgeName][badgeVersion];
-				if (badge) {
+				console.log(badge, badgeName, badgeVersion);
+				if (badge && badge.url) {
 					const img = document.createElement("img");
 					img.src = badge.url;
 					img.alt = badge.title;
@@ -371,10 +372,9 @@ window.onload = async function () {
 			log(`Seja bem-vindo!`);
 			console.log(`* Connected to ${address}:${port} as ${client.getUsername()}`);
 		});
-		client.on("roomstate", (channel, state) => {
+		client.on("roomstate", async (channel, state) => {
 			console.log("* Roomstate", state);
-			console.log(client.globaluserstate);
-			console.log(client.userstate);
+			await fetchBadges(state["room-id"]);
 		});
 		client.on("message", (_, tags, message, self) => {
 			console.log(tags);
@@ -414,6 +414,7 @@ window.onload = async function () {
 				message.style.opacity = 0.15;
 			}
 			log(`Mensagem de ${username} deletada!`);
+			console.log(`* Message deleted: ${deletedMessage}`);
 		});
 		client.on("ban", (channel, username, reason, tags) => {
 			const id = tags["target-user-id"];
@@ -424,6 +425,7 @@ window.onload = async function () {
 				message.style.opacity = 0.15;
 			}
 			log(`Usuário ${username} banido!`);
+			console.log(`* User ${username} was banned for ${reason}`);
 		});
 		client.on("timeout", (channel, username, reason, duration, tags) => {
 			const id = tags["target-user-id"];
@@ -434,6 +436,7 @@ window.onload = async function () {
 				message.style.opacity = 0.15;
 			}
 			log(`Usuário ${username} limitado por ${duration} segundos!`);
+			console.log(`* User ${username} was timed out for ${reason} for ${duration} seconds`);
 		});
 		client.on("disconnected", (reason) => {
 			console.log(`* Disconnected: ${reason}`);
