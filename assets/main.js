@@ -289,7 +289,7 @@ window.onload = async function () {
 		scroll();
 	};
 	const fetchLatestMessages = async () => {
-		const url = `https://recent-messages.robotty.de/api/v2/recent-messages/${channel}?limit=${limit}`;
+		const url = `https://recent-messages.robotty.de/api/v2/recent-messages/${channel}?limit=10`;
 		const messages = await fetch(url)
 			.then((res) => res.json())
 			.then((data) => {
@@ -302,68 +302,42 @@ window.onload = async function () {
 				acc[key] = value;
 				return acc;
 			}, {});
-			const badges = data.badges?.split(",").map((badge) => {
+			data.badges = data.badges?.split(",").map((badge) => {
 				const [id, version] = badge.split("/");
-				return {
-					id,
-					version,
-					...badges[id]?.[version],
-				};
+				return { [id]: version };
 			});
-			const emotes = data.emotes?.split("/").map((emote) => {
+			data.emotes = data.emotes?.split(",").map((emote) => {
 				const [id, positions] = emote.split(":");
-				return {
-					id,
-					positions: positions.split(",").map((position) => {
-						const [start, end] = position.split("-");
-						return {
-							start: parseInt(start),
-							end: parseInt(end),
-						};
-					}),
-				};
+				return { [id]: positions };
 			});
-			const messageData = {
-				id: data.id,
-				timestamp: parseInt(data["tmi-sent-ts"]),
-				roomID: data["room-id"],
-				userID: data["user-id"],
-				userLogin: data["user-login"],
-				displayName: data["display-name"],
-				color: data.color,
-				badges,
-				emotes,
-				message: message.split(" :")[2],
-				reply: data.hasOwnProperty("reply-parent-msg-id") && {
-					id: data["reply-parent-msg-id"],
-					user: data["reply-parent-display-name"],
-					text: data["reply-parent-msg-body"],
-				},
-				first: data.hasOwnProperty("first-msg") && data["first-msg"] === "1",
-			};
-			parsedMessages.push(messageData);
+			data.message = message.split(" :")[2];
+			parsedMessages.push(data);
 		}
 		return parsedMessages;
 	};
 	await fetchLatestMessages()
 		.then((messages) => {
-			for (const message of messages) {
-				const messageData = {
-					id: `${message.userID}:${message.id}:${message.timestamp}`,
-					type: "chat",
-					text: message.message,
-					name: message.displayName,
-					color: message.color,
-					badges: message.badges?.reduce((acc, cur) => {
-						acc[cur.id] = cur.version;
-						return acc;
-					}, {}),
-					highlight: false,
-					timestamp: message.timestamp,
-					reply: message.reply,
-					first: message.first,
+			console.log(messages);
+			for (const tags of messages) {
+				const data = {
+					id: `${tags["user-id"]}:${tags.id}:${tags["tmi-sent-ts"]}`,
+					type: tags["message-type"],
+					text: parseMessage(tags.message, tags.emotes),
+					name: tags["display-name"],
+					color: tags.color || "#eee",
+					badges: tags.badges ?? {},
+					highlight: tags.id === "highlighted-message",
+					timestamp: tags["tmi-sent-ts"],
+					reply: tags.hasOwnProperty("reply-parent-msg-id")
+						? {
+								id: tags["reply-parent-msg-id"],
+								user: tags["reply-parent-display-name"],
+								text: tags["reply-parent-msg-body"],
+						  }
+						: null,
+					first: tags.hasOwnProperty("first-msg") ? tags["first-msg"] : null,
 				};
-				appendMessage(messageData);
+				appendMessage(data);
 			}
 		})
 		.catch((err) => {
