@@ -1,50 +1,11 @@
 window.onload = async function () {
-	const limit = 100;
+	let firstLoad = true;
+	const limit = 50;
 	const channel = localStorage.getItem("twitch-channel") || "xogum";
+	const clientId = localStorage.getItem("twitch-client-id");
 	const token = localStorage.getItem("twitch-token");
 	const thirdPartyEmotes = {};
-	await Promise.allSettled([
-		fetch("https://emotes.adamcy.pl/v1/global/emotes/7tv.bttv.ffz").then((res) => res.json()),
-		fetch("https://emotes.adamcy.pl/v1/channel/xogum/emotes/7tv.bttv.ffz").then((res) => res.json()),
-	]).then((results) => {
-		for (const result of results) {
-			if (result.status === "fulfilled") {
-				for (const emote of result.value) {
-					if (!thirdPartyEmotes[emote.code]) {
-						thirdPartyEmotes[emote.code] = emote.urls?.find((e) => e)?.url;
-					}
-				}
-			}
-		}
-	});
-	const badges = {};
-	const fetchBadges = async (id = "global") => {
-		let url;
-		if (id.toLowerCase() === "global") {
-			url = "https://badges.twitch.tv/v1/badges/global/display";
-		} else if (!isNaN(id)) {
-			url = `https://badges.twitch.tv/v1/badges/channels/${id}/display`;
-		} else {
-			return;
-		}
-		await fetch(url)
-			.then((res) => res.json())
-			.then((data) => {
-				for (const [setID, badge] of Object.entries(data.badge_sets)) {
-					badges[setID] = badges[setID] || {};
-					for (const [badgeID, version] of Object.entries(badge.versions)) {
-						badges[setID][badgeID] = {
-							url: version.image_url_1x,
-							title: version.title,
-						};
-					}
-				}
-			})
-			.catch((err) => {
-				console.error(err);
-			});
-	};
-	await fetchBadges(); // global badges
+	const cachedBadges = {};
 	const scroll = () => {
 		document.scrollingElement.scrollTop = document.scrollingElement.scrollHeight;
 	};
@@ -195,53 +156,49 @@ window.onload = async function () {
 		text = replaceLinks(text);
 		return text;
 	};
-	const appendMessage = (message) => {
-		const chat = document.getElementById("chat");
+	const addMessage = (data) => {
+		const messages = Array.from(chat.querySelectorAll(".message"));
+		if (messages.length > limit) {
+			messages.shift().remove();
+		}
+		const lastMessage = messages.pop();
+		const chat = document.querySelector("#chat");
 		const div = document.createElement("div");
-		div.id = message.id;
-		div.className = "message";
-		const messages = chat.querySelectorAll(".message");
-		const hasMention = message.text
-			.split(" ")
-			.some((word) => word === new RegExp(`^@?${channel}$`, "i"));
-		const lastMessage = messages[messages.length - 1];
-		if (hasMention) {
-			div.className += " mention";
-		} else if (lastMessage) {
-			const lastMessageClass = lastMessage.className;
-			if (lastMessageClass.includes("odd")) {
-				div.className += " even";
-			} else {
-				div.className += " odd";
-			}
+		div.id =
+			data.id === "highlighted-message" ? `highlight-${data["tmi-sent-ts"]}` : `message-${data.id}`;
+		div.dataset.id = data.id;
+		div.dataset.timestamp = data.timestamp;
+		div.dataset.userName = data.username;
+		div.dataset.userId = data["user-id"];
+		div.classList.add("message", data["message-type"]);
+		if (data.message.split(" ").some((word) => word === new RegExp(`^@?${channel}$`, "i"))) {
+			div.classList.add("mention");
+		} else if (!lastMessage || lastMessage.classList.contains("even")) {
+			div.classList.add("odd");
 		} else {
-			div.className += " odd";
+			div.classList.add("even");
 		}
-		div.className += ` ${message.type} ${message.first ? "first" : ""}`;
-		if (message.reply) {
-			div.title = `${message.reply.user}: ${message.reply.text}`;
-			div.className += " reply";
-			div.addEventListener("click", () => {
-				Array.from(div.querySelectorAll(".message"))
-					.find((m) => m.id.includes(message.reply.id))
-					?.scrollIntoView();
-			});
+		if (data.hasOwnProperty("first-message")) {
+			div.classList.add("first-message");
 		}
-		// meta
+		if (data.hasOwnProperty("reply-parent-msg-id")) {
+			const reply = document.createElement("div");
+			reply.classList.add("reply-parent");
+			reply.innerHTML = `<span class="reply-parent-user">${data["reply-parent-user-name"]}</span> <span class="reply-parent-message">${data["reply-parent-msg-body"]}</span>`;
+			div.appendChild(reply);
+		}
 		const user = document.createElement("span");
-		user.className = "user";
-		// timestamp to time
+		user.classList.add("user");
 		const timestamp = document.createElement("span");
-		timestamp.className = "timestamp";
-		timestamp.innerText = timestampToTime(message.timestamp);
-		timestamp.title = timestampToDate(message.timestamp);
+		timestamp.classList.add("timestamp");
+		timestamp.innerText = timestampToTime(data["tmi-sent-ts"]);
+		timestamp.title = timestampToDate(data["tmi-sent-ts"]);
 		user.appendChild(timestamp);
-		// badges
 		const badgeImages = document.createElement("span");
-		badgeImages.className = "badges";
-		for (const [badgeName, badgeVersion] of Object.entries(message.badges || {})) {
-			if (badges[badgeName] && badges[badgeName][badgeVersion]) {
-				const badge = badges[badgeName][badgeVersion];
+		badgeImages.classList.add("badges");
+		for (const [badgeName, badgeVersion] of Object.entries(data.badges || {})) {
+			if (cachedBadges[badgeName] && cachedBadges[badgeName][badgeVersion]) {
+				const badge = cachedBadges[badgeName][badgeVersion];
 				if (badge && badge.url) {
 					const img = document.createElement("img");
 					img.src = badge.url;
@@ -252,45 +209,89 @@ window.onload = async function () {
 			}
 		}
 		user.appendChild(badgeImages);
-		// name
 		const name = document.createElement("span");
-		name.className = "name";
-		name.style.color = message.color;
-		name.innerText = message.name;
+		name.classList.add("name");
+		name.style.color = data.color;
+		name.innerText = data["display-name"];
 		user.appendChild(name);
 		div.appendChild(user);
-		// message
 		const text = document.createElement("span");
-		text.className = "text";
-		text.innerHTML = message.text;
+		text.classList.add("text");
+		text.innerHTML = parseMessage(data.message, data.emotes);
 		div.appendChild(text);
-		div.className = div.className.trim();
 		chat.appendChild(div);
 		scroll();
 	};
-	const removeMessage = (id) => {
-		const message = document.getElementById(id);
+	const disableMessage = (id) => {
+		const message = document.querySelector(`#chat #message-${id}`);
 		if (message) {
-			message.remove();
+			message.classList.add("disabled");
 		}
 	};
-	const addMessage = (message) => {
-		appendMessage(message);
-		const messages = document.getElementsByClassName("message");
-		if (messages.length > limit) {
-			removeMessage(messages[0].id);
+	const disableUserMessages = (userId) => {
+		const messages = document.querySelectorAll(`#chat .message[data-user-id="${userId}"]`);
+		for (const message of messages) {
+			message.classList.add("disabled");
+		}
+	};
+	const disableAllMessages = () => {
+		const messages = document.querySelectorAll("#chat .message");
+		for (const message of messages) {
+			message.classList.add("disabled");
 		}
 	};
 	const log = (message) => {
 		const chat = document.getElementById("chat");
 		const div = document.createElement("div");
-		div.className = "message log";
+		div.classList.add("message", "log");
 		div.innerText = message;
 		chat.appendChild(div);
 		scroll();
 	};
+	const updateChannelStatus = async () => {
+		await fetch("https://api.twitch.tv/helix/streams", {
+			headers: {
+				"Client-ID": clientId,
+				"Authorization": `Bearer ${token}`,
+			},
+			params: {
+				user_login: channel,
+			},
+		})
+			.then((res) => res.json())
+			.then((data) => {
+				const stream = data.data[0];
+				const channelInfo = document.getElementById("channel-info");
+				if (stream) {
+					const { title, game_name, started_at, viewer_count } = stream;
+					const titleElement = document.createElement("span");
+					titleElement.className = "title";
+					titleElement.innerText = title;
+					const gameElement = document.createElement("span");
+					gameElement.className = "game";
+					gameElement.innerText = game_name;
+					const viewersElement = document.createElement("span");
+					viewersElement.className = "viewers";
+					viewersElement.innerText = viewer_count;
+					const startedElement = document.createElement("span");
+					startedElement.className = "started";
+					startedElement.title = started_at;
+					startedElement.innerText = new Date(started_at).toLocaleString("pt-BR", {
+						timeZone: "America/Sao_Paulo",
+						timeStyle: "long",
+					});
+					channelInfo.innerHTML = "";
+					channelInfo.appendChild(titleElement);
+					channelInfo.appendChild(gameElement);
+					channelInfo.appendChild(viewersElement);
+					channelInfo.appendChild(startedElement);
+				} else {
+					channelInfo.innerHTML = "";
+				}
+			});
+	};
 	const fetchLatestMessages = async () => {
-		const url = `https://recent-messages.robotty.de/api/v2/recent-messages/${channel}?hide_moderated_messages=true&limit=15`;
+		const url = `https://recent-messages.robotty.de/api/v2/recent-messages/${channel}?hide_moderated_messages=true&limit=${limit}`;
 		const messages = await fetch(url)
 			.then((res) => res.json())
 			.then((data) => {
@@ -355,6 +356,7 @@ window.onload = async function () {
 			},
 			connection: {
 				reconnect: true,
+				secure: true,
 			},
 		};
 		if (token && token.length) {
@@ -366,119 +368,112 @@ window.onload = async function () {
 		const client = new tmi.Client(clientData);
 		client.connect();
 		client.on("connected", (address, port) => {
-			log(`Seja bem-vindo!`);
-			console.log(`* Connected to ${address}:${port}}`);
+			console.log(`Connected to ${address}:${port}`);
+			log("Conectado!");
 		});
 		client.on("roomstate", async (channel, state) => {
 			console.log("* Roomstate", state);
-			await fetchBadges(state["room-id"]);
-			await fetchLatestMessages()
-				.then((messages) => {
-					for (const tags of messages) {
-						const data = {
-							id: `${tags["user-id"]}:${tags.id}:${tags["tmi-sent-ts"]}`,
-							type: tags["message-type"],
-							text: parseMessage(tags.message, tags.emotes || {}),
-							name: tags["display-name"],
-							color: tags.color || "#eee",
-							badges: tags.badges ?? {},
-							highlight: tags.id === "highlighted-message",
-							timestamp: tags["tmi-sent-ts"],
-							reply: tags.hasOwnProperty("reply-parent-msg-id")
-								? {
-										id: tags["reply-parent-msg-id"],
-										user: tags["reply-parent-display-name"],
-										text: tags["reply-parent-msg-body"],
-								  }
-								: null,
-							first: tags.hasOwnProperty("first-msg") ? tags["first-msg"] : null,
-						};
-						appendMessage(data);
-					}
-				})
-				.catch((err) => {
-					console.error(err);
-				});
+			if (firstLoad) {
+				// prevent from updating on reconnect
+				await Promise.allSettled([
+					fetch("https://badges.twitch.tv/v1/badges/global/display").then((res) => res.json()),
+					fetch(`https://badges.twitch.tv/v1/badges/channels/${state["room-id"]}/display`).then((res) =>
+						res.json()
+					),
+				])
+					.then((results) => {
+						for (const result of results) {
+							if (result.status === "fulfilled") {
+								for (const [setID, badge] of Object.entries(result.value.badge_sets)) {
+									cachedBadges[setID] = cachedBadges[setID] || {};
+									for (const [badgeID, version] of Object.entries(badge.versions)) {
+										cachedBadges[setID][badgeID] = {
+											url: version.image_url_1x,
+											title: version.title,
+										};
+									}
+								}
+							}
+						}
+					})
+					.catch((err) => {
+						console.error(err);
+					});
+				await Promise.allSettled([
+					fetch("https://emotes.adamcy.pl/v1/global/emotes/7tv.bttv.ffz").then((res) => res.json()),
+					fetch(`https://emotes.adamcy.pl/v1/channel/${state["room-id"]}/emotes/7tv.bttv.ffz`).then(
+						(res) => res.json()
+					),
+				])
+					.then((results) => {
+						for (const result of results) {
+							if (result.status === "fulfilled") {
+								for (const emote of result.value) {
+									if (!thirdPartyEmotes[emote.code]) {
+										thirdPartyEmotes[emote.code] = emote.urls?.find((e) => e)?.url;
+									}
+								}
+							}
+						}
+					})
+					.catch((err) => {
+						console.error(err);
+					});
+				await fetchLatestMessages()
+					.then((messages) => {
+						for (const data of messages) {
+							addMessage(data);
+						}
+					})
+					.catch((err) => {
+						console.error(err);
+					});
+				firstLoad = false;
+			}
 		});
 		client.on("message", (_, tags, message, self) => {
 			if (self) return;
 			const data = {
-				id: `${tags["user-id"]}:${tags.id}:${tags["tmi-sent-ts"]}`,
-				type: tags["message-type"],
-				text: parseMessage(message, tags.emotes),
-				name: tags["display-name"],
-				color: tags.color || "#eee",
-				badges: tags.badges ?? {},
-				highlight: tags.id === "highlighted-message",
-				timestamp: tags["tmi-sent-ts"],
-				reply: tags.hasOwnProperty("reply-parent-msg-id")
-					? {
-							id: tags["reply-parent-msg-id"],
-							user: tags["reply-parent-display-name"],
-							text: tags["reply-parent-msg-body"],
-					  }
-					: null,
-				first: tags.hasOwnProperty("first-msg") ? tags["first-msg"] : null,
+				message,
+				...tags,
 			};
 			addMessage(data);
 		});
-		client.on("announcement", (_, tags, message, self, color) => {
+		client.on("announcement", (_, tags, message, self, announce) => {
 			if (self) return;
 			const data = {
-				id: `${tags["user-id"]}:${tags.id}:${tags["tmi-sent-ts"]}`,
-				type: tags["message-type"],
-				text: parseMessage(message, tags.emotes),
-				name: tags["display-name"],
-				color: tags.color || "#eee",
-				badges: tags.badges ?? {},
-				timestamp: tags["tmi-sent-ts"],
-				highlight: false,
-				reply: false,
-				first: false,
+				message,
+				...tags,
+				announce,
 			};
 			addMessage(data);
 		});
 		client.on("clearchat", () => {
-			const messages = document.getElementsByClassName("message");
-			for (const message of messages) {
-				message.classList.add("disabled");
-			}
+			disableAllMessages();
 			log("Chat limpo!");
 		});
 		client.on("messagedeleted", (channel, username, deletedMessage, tags) => {
-			const id = tags["target-msg-id"];
-			const message = Array.from(document.querySelectorAll(".message")).find((m) => m.id.includes(id));
-			if (message) {
-				message.classList.add("disabled");
-			}
+			disableMessage(tags["target-msg-id"]);
 			log(`Mensagem de ${username} deletada!`);
 			console.log(`* Message deleted: ${deletedMessage}`);
 		});
 		client.on("ban", (channel, username, reason, tags) => {
-			const id = tags["target-user-id"];
-			const messages = Array.from(document.querySelectorAll(".message")).filter((m) =>
-				m.id.includes(id)
-			);
-			for (const message of messages) {
-				message.classList.add("disabled");
-			}
+			disableUserMessages(tags["target-user-id"]);
 			log(`Usuário ${username} banido!`);
-			console.log(`* User ${username} was banned for ${reason}`);
+			console.log(`* User ${username} was banned!`);
 		});
 		client.on("timeout", (channel, username, reason, duration, tags) => {
-			const id = tags["target-user-id"];
-			const messages = Array.from(document.querySelectorAll(".message")).filter((m) =>
-				m.id.includes(id)
-			);
-			for (const message of messages) {
-				message.classList.add("disabled");
-			}
+			disableUserMessages(tags["target-user-id"]);
 			log(`Usuário ${username} limitado por ${duration} segundos!`);
-			console.log(`* User ${username} was timed out for ${reason} for ${duration} seconds`);
+			console.log(`* User ${username} was timed out for ${duration} seconds`);
 		});
 		client.on("disconnected", (reason) => {
-			console.log(`* Disconnected: ${reason}`);
 			log("Desconectado!");
+			console.log(`* Disconnected: ${reason}`);
+		});
+		client.on("reconnect", () => {
+			log("Reconectando...");
+			console.log("* Reconnecting...");
 		});
 	}
 };
