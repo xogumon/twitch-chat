@@ -1,8 +1,6 @@
 window.onload = async function () {
 	const limit = 100;
 	const channel = localStorage.getItem("twitch-channel") || "xogum";
-	const channelId = localStorage.getItem("twitch-channel-id");
-	const clientId = localStorage.getItem("twitch-client-id");
 	const token = localStorage.getItem("twitch-token");
 	const thirdPartyEmotes = {};
 	await Promise.allSettled([
@@ -47,31 +45,6 @@ window.onload = async function () {
 			});
 	};
 	await fetchBadges(); // global badges
-	console.log("badges", badges);
-	if (token && !!token.length && channelId && !!channelId.length) {
-		const headers = new Headers();
-		headers.append("Authorization", `Bearer ${token}`);
-		headers.append("Client-Id", clientId);
-		await Promise.allSettled([
-			fetch("https://api.twitch.tv/helix/chat/badges/global", { headers })
-				.then((res) => res.json())
-				.catch(console.error),
-			fetch("https://api.twitch.tv/helix/chat/badges?broadcaster_id=" + channelId, { headers })
-				.then((res) => res.json())
-				.catch(console.error),
-		]).then((results) => {
-			for (const result of results) {
-				if (result.status === "fulfilled") {
-					for (const badge of result.value.data) {
-						badges[badge.set_id] = badges[badge.set_id] || {};
-						for (const version of badge.versions) {
-							badges[badge.set_id][version.id] = version.image_url_1x;
-						}
-					}
-				}
-			}
-		});
-	}
 	const scroll = () => {
 		document.scrollingElement.scrollTop = document.scrollingElement.scrollHeight;
 	};
@@ -174,31 +147,6 @@ window.onload = async function () {
 			timeZone: "America/Sao_Paulo",
 			dateStyle: style,
 		});
-	};
-	const getCachedMessages = () => {
-		const cachedMessages = JSON.parse(sessionStorage.getItem("chatMessages"));
-		if (cachedMessages) {
-			return cachedMessages;
-		}
-		return [];
-	};
-	const findCachedMessage = (id) => {
-		const cachedMessages = getCachedMessages();
-		return cachedMessages.find((m) => m.id === id);
-	};
-	const cacheMessage = (message) => {
-		const cachedMessages = getCachedMessages();
-		if (findCachedMessage(message.id)) return;
-		cachedMessages.push(message);
-		sessionStorage.setItem("chatMessages", JSON.stringify(cachedMessages));
-	};
-	const removeCachedMessage = (id) => {
-		const cachedMessages = getCachedMessages();
-		const index = cachedMessages.findIndex((m) => m.id === id);
-		if (index !== -1) {
-			cachedMessages.splice(index, 1);
-			sessionStorage.setItem("chatMessages", JSON.stringify(cachedMessages));
-		}
 	};
 	const parseEmotes = (text, emotes) => {
 		text = text.split("");
@@ -320,14 +268,12 @@ window.onload = async function () {
 		scroll();
 	};
 	const removeMessage = (id) => {
-		removeCachedMessage(id);
 		const message = document.getElementById(id);
 		if (message) {
 			message.remove();
 		}
 	};
 	const addMessage = (message) => {
-		cacheMessage(message);
 		appendMessage(message);
 		const messages = document.getElementsByClassName("message");
 		if (messages.length > limit) {
@@ -342,12 +288,87 @@ window.onload = async function () {
 		chat.appendChild(div);
 		scroll();
 	};
-	const cachedMessages = getCachedMessages();
-	if (cachedMessages) {
-		for (const message of cachedMessages) {
-			appendMessage(message);
+	const fetchLatestMessages = async () => {
+		const url = `https://recent-messages.robotty.de/api/v2/recent-messages/${channel}?limit=${limit}`;
+		const messages = await fetch(url)
+			.then((res) => res.json())
+			.then((data) => {
+				return data.messages;
+			});
+		const parsedMessages = [];
+		for (const message of messages) {
+			const data = message.split(";").reduce((acc, cur) => {
+				const [key, value] = cur.split("=");
+				acc[key] = value;
+				return acc;
+			}, {});
+			const badges = data.badges?.split(",").map((badge) => {
+				const [id, version] = badge.split("/");
+				return {
+					id,
+					version,
+					...badges[id]?.[version],
+				};
+			});
+			const emotes = data.emotes?.split("/").map((emote) => {
+				const [id, positions] = emote.split(":");
+				return {
+					id,
+					positions: positions.split(",").map((position) => {
+						const [start, end] = position.split("-");
+						return {
+							start: parseInt(start),
+							end: parseInt(end),
+						};
+					}),
+				};
+			});
+			const messageData = {
+				id: data.id,
+				timestamp: parseInt(data["tmi-sent-ts"]),
+				roomID: data["room-id"],
+				userID: data["user-id"],
+				userLogin: data["user-login"],
+				displayName: data["display-name"],
+				color: data.color,
+				badges,
+				emotes,
+				message: message.split(" :")[2],
+				reply: data.hasOwnProperty("reply-parent-msg-id") && {
+					id: data["reply-parent-msg-id"],
+					user: data["reply-parent-display-name"],
+					text: data["reply-parent-msg-body"],
+				},
+				first: data.hasOwnProperty("first-msg") && data["first-msg"] === "1",
+			};
+			parsedMessages.push(messageData);
 		}
-	}
+		return parsedMessages;
+	};
+	await fetchLatestMessages()
+		.then((messages) => {
+			for (const message of messages) {
+				const messageData = {
+					id: `${message.userID}:${message.id}:${message.timestamp}`,
+					type: "chat",
+					text: message.message,
+					name: message.displayName,
+					color: message.color,
+					badges: message.badges?.reduce((acc, cur) => {
+						acc[cur.id] = cur.version;
+						return acc;
+					}, {}),
+					highlight: false,
+					timestamp: message.timestamp,
+					reply: message.reply,
+					first: message.first,
+				};
+				appendMessage(messageData);
+			}
+		})
+		.catch((err) => {
+			console.error(err);
+		});
 	if (tmi && tmi.Client) {
 		let clientData = {
 			channels: [channel],
@@ -370,14 +391,13 @@ window.onload = async function () {
 		client.connect();
 		client.on("connected", (address, port) => {
 			log(`Seja bem-vindo!`);
-			console.log(`* Connected to ${address}:${port} as ${client.getUsername()}`);
+			console.log(`* Connected to ${address}:${port}}`);
 		});
 		client.on("roomstate", async (channel, state) => {
 			console.log("* Roomstate", state);
 			await fetchBadges(state["room-id"]);
 		});
 		client.on("message", (_, tags, message, self) => {
-			console.log(tags);
 			if (self) return;
 			const data = {
 				id: `${tags["user-id"]}:${tags.id}:${tags["tmi-sent-ts"]}`,
@@ -399,7 +419,22 @@ window.onload = async function () {
 			};
 			addMessage(data);
 		});
-		client.on("announcement", console.log);
+		client.on("announcement", (_, tags, message, self, color) => {
+			if (self) return;
+			const data = {
+				id: `${tags["user-id"]}:${tags.id}:${tags["tmi-sent-ts"]}`,
+				type: tags["message-type"],
+				text: parseMessage(message, tags.emotes),
+				name: tags["display-name"],
+				color: tags.color || "#eee",
+				badges: tags.badges ?? {},
+				timestamp: tags["tmi-sent-ts"],
+				highlight: false,
+				reply: false,
+				first: false,
+			};
+			addMessage(data);
+		});
 		client.on("clearchat", () => {
 			const messages = document.getElementsByClassName("message");
 			for (const message of messages) {
