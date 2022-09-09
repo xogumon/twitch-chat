@@ -311,23 +311,39 @@ window.onload = async function () {
 				acc[key.replace("@", "")] = intValue === 1 || intValue === 0 ? Boolean(intValue) : value;
 				return acc;
 			}, {});
-			data.badges = data.badges?.split(",").reduce((acc, cur) => {
-				const [id, version] = cur.split("/");
-				if (id && version) acc[id] = version;
-				return acc;
-			}, {});
-			data.emotes = data.emotes?.split(",").reduce((acc, cur) => {
-				const [id, positions] = cur.split(":");
-				if (id && positions) {
-					const emote = acc[id] || [];
-					emote.push(positions);
-					acc[id] = emote;
-				}
-				return acc;
-			}, {});
-			const [userType, _, msgType, channel, ...textMessage] = data["user-type"]?.split(" ");
-			data.message = unescapeHtml(textMessage?.join(" "));
-			data["message-type"] = actionMessageRegex.test(data.message) ? "action" : msgType;
+			data.badges =
+				data.badges?.split(",").reduce((acc, cur) => {
+					const [id, version] = cur.split("/");
+					if (id && version) acc[id] = version;
+					return acc;
+				}, {}) || {};
+			data.emotes =
+				data.emotes?.split(",").reduce((acc, cur) => {
+					const [id, positions] = cur.split(":");
+					if (id && positions) {
+						const emote = acc[id] || [];
+						emote.push(positions);
+						acc[id] = emote;
+					}
+					return acc;
+				}, {}) || {};
+			const [userType, _, msgType, channel, ...textMessage] = data["user-type"]?.split(/\s:?/) || [];
+			data.message = textMessage?.join(" ");
+			const actionMessage = data.message?.match(actionMessageRegex);
+			if (actionMessage) {
+				data.message = actionMessage[1];
+				data["message-type"] = "action";
+			} else {
+				data["message-type"] =
+					msgType === "PRIVMSG"
+						? "chat"
+						: msgType === "WHISPER"
+						? "whisper"
+						: msgType === "USERNOTICE"
+						? "announcement"
+						: "unknown";
+			}
+			data.message = unescapeHtml(data.message);
 			data["user-type"] = userType;
 			data.channel = channel;
 			if (data.message) parsedMessages.push(data);
