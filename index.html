@@ -26,7 +26,9 @@
 			}
 
 			#chat > .message {
+				align-items: center;
 				border-bottom: 1px solid #1d1d1d;
+				display: flex;
 				padding: 1rem;
 			}
 
@@ -34,6 +36,7 @@
 				background-color: #1d1d3b;
 				color: #5e628f;
 				font-size: 0.8em;
+				justify-content: center;
 			}
 
 			#chat > .message.odd {
@@ -55,6 +58,11 @@
 			#chat > .message.reply {
 				background-color: #292929;
 				cursor: pointer;
+			}
+
+			#chat > .massage.disabled {
+				opacity: 0.15;
+				cursor: default;
 			}
 
 			#chat > .message:last-child {
@@ -88,6 +96,7 @@
 			#chat > .message > .user > .timestamp {
 				color: #53535f;
 				font-size: 0.8rem;
+				line-height: 1rem;
 				margin-right: 0.5rem;
 			}
 
@@ -105,16 +114,12 @@
 				margin-right: 0.5rem;
 			}
 
-			#chat > .message > .text {
-				vertical-align: bottom;
-			}
-
 			#chat > .message.action > .text {
 				font-style: italic;
 			}
 
 			#chat > .message > .text > .emote {
-				height: auto;
+				height: 1.2rem;
 			}
 		</style>
 	</head>

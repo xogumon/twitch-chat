@@ -336,13 +336,7 @@ window.onload = async function () {
 				data["message-type"] = "action";
 			} else {
 				data["message-type"] =
-					msgType === "PRIVMSG"
-						? "chat"
-						: msgType === "WHISPER"
-						? "whisper"
-						: msgType === "USERNOTICE"
-						? "announcement"
-						: "unknown";
+					msgType === "PRIVMSG" ? "chat" : msgType === "USERNOTICE" ? data["id"] : "unknown";
 			}
 			data.message = unescapeHtml(data.message);
 			data["user-type"] = userType;
@@ -380,7 +374,6 @@ window.onload = async function () {
 			await fetchBadges(state["room-id"]);
 			await fetchLatestMessages()
 				.then((messages) => {
-					console.log(messages);
 					for (const tags of messages) {
 						const data = {
 							id: `${tags["user-id"]}:${tags.id}:${tags["tmi-sent-ts"]}`,
@@ -448,7 +441,7 @@ window.onload = async function () {
 		client.on("clearchat", () => {
 			const messages = document.getElementsByClassName("message");
 			for (const message of messages) {
-				message.style.opacity = 0.15;
+				message.classList.add("disabled");
 			}
 			log("Chat limpo!");
 		});
@@ -456,7 +449,7 @@ window.onload = async function () {
 			const id = tags["target-msg-id"];
 			const message = Array.from(document.querySelectorAll(".message")).find((m) => m.id.includes(id));
 			if (message) {
-				message.style.opacity = 0.15;
+				message.classList.add("disabled");
 			}
 			log(`Mensagem de ${username} deletada!`);
 			console.log(`* Message deleted: ${deletedMessage}`);
@@ -467,7 +460,7 @@ window.onload = async function () {
 				m.id.includes(id)
 			);
 			for (const message of messages) {
-				message.style.opacity = 0.15;
+				message.classList.add("disabled");
 			}
 			log(`Usuário ${username} banido!`);
 			console.log(`* User ${username} was banned for ${reason}`);
@@ -478,7 +471,7 @@ window.onload = async function () {
 				m.id.includes(id)
 			);
 			for (const message of messages) {
-				message.style.opacity = 0.15;
+				message.classList.add("disabled");
 			}
 			log(`Usuário ${username} limitado por ${duration} segundos!`);
 			console.log(`* User ${username} was timed out for ${reason} for ${duration} seconds`);
