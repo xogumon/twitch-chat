@@ -20,6 +20,33 @@ window.onload = async function () {
 		}
 	});
 	const badges = {};
+	const fetchBadges = async (id = "global") => {
+		let url;
+		if (id.toLowerCase() === "global") {
+			url = "https://badges.twitch.tv/v1/badges/global/display";
+		} else if (!isNaN(id)) {
+			url = `https://badges.twitch.tv/v1/badges/channels/${id}/display`;
+		} else {
+			return;
+		}
+		await fetch(url)
+			.then((res) => res.json())
+			.then((data) => {
+				for (const [setID, badge] of Object.entries(data.badge_sets)) {
+					badges[setID] = badges[setID] || {};
+					for (const [badgeID, version] of Object.entries(badge.versions)) {
+						badges[setID][badgeID] = {
+							url: version.image_url_1x,
+							title: version.title,
+						};
+					}
+				}
+			})
+			.catch((err) => {
+				console.error(err);
+			});
+	};
+	await fetchBadges(); // global badges
 	if (token && !!token.length && channelId && !!channelId.length) {
 		const headers = new Headers();
 		headers.append("Authorization", `Bearer ${token}`);
@@ -77,14 +104,29 @@ window.onload = async function () {
 		}
 		return indices;
 	};
+	const isValidURL = (str) => {
+		try {
+			const regex = new RegExp(
+				"^(https?:\\/\\/)?" + // protocol
+					"((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|" + // domain name
+					"((\\d{1,3}\\.){3}\\d{1,3}))" + // OR ip (v4) address
+					"(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*" + // port and path
+					"(\\?[;&a-z\\d%_.~+=-]*)?" + // query string
+					"(\\#[-a-z\\d_]*)?$",
+				"i"
+			); // fragment locator
+			return !!regex.test(str);
+		} catch (e) {
+			return false;
+		}
+	};
 	const replaceLinks = (text) => {
 		try {
-			const regex = /^(?:https?:\/\/)?[a-z0-9-]+\.\/?[^\s]+/i;
 			const sep = " ";
 			return text
 				.split(sep)
 				.map((word) => {
-					if (regex.test(word)) {
+					if (isValidURL(word)) {
 						try {
 							const url = new URL(!word.startsWith("http") ? `https://${word}` : word);
 							return `<a href="${url.href}" target="_blank">${htmlEscape(word)}</a>`;
@@ -101,7 +143,7 @@ window.onload = async function () {
 	};
 	const strongMentions = (text) => {
 		try {
-			const regex = /\@[a-z0-9_]{4,25}/i;
+			const regex = /^@[\w]{4,25}$/i;
 			const sep = " ";
 			return text
 				.split(sep)
@@ -205,13 +247,26 @@ window.onload = async function () {
 		return text;
 	};
 	const appendMessage = (message) => {
-		const hasMention = new RegExp(`\\b@?${channel}\\b`, "gi").test(message.text);
 		const chat = document.getElementById("chat");
 		const div = document.createElement("div");
 		div.id = message.id;
 		div.className = "message";
+		const messages = chat.querySelectorAll(".message");
+		const hasMention = message.text
+			.split(" ")
+			.some((word) => word === new RegExp(`^@?${channel}$`, "i"));
+		const lastMessage = messages[messages.length - 1];
 		if (hasMention) {
-			div.classList.add("mention");
+			div.className += " mention";
+		} else if (lastMessage) {
+			const lastMessageClass = lastMessage.className;
+			if (lastMessageClass.includes("odd")) {
+				div.className += " even";
+			} else {
+				div.className += " odd";
+			}
+		} else {
+			div.className += " odd";
 		}
 		// meta
 		const user = document.createElement("span");
@@ -228,7 +283,10 @@ window.onload = async function () {
 		for (const [badgeName, badgeVersion] of Object.entries(message.badges || {})) {
 			if (badges[badgeName] && badges[badgeName][badgeVersion]) {
 				const img = document.createElement("img");
-				img.src = badges[badgeName][badgeVersion];
+				const badge = badges[badgeName][badgeVersion];
+				img.src = badge.url;
+				img.alt = badge.title;
+				img.title = badge.title;
 				badgeImages.appendChild(img);
 			}
 		}
@@ -291,46 +349,53 @@ window.onload = async function () {
 		client.connect();
 		client.on("connected", (address, port) => {
 			console.log(`* Connected to ${address}:${port} as ${client.getUsername()}`);
+			console.log(client.globaluserstate);
 		});
 		client.on("message", (_, tags, message, self) => {
 			console.log(tags);
 			if (self) return;
 			const data = {
-				id: `${tags["user-id"]}-${tags.id}-${tags["tmi-sent-ts"]}`,
+				id: `${tags["user-id"]}:${tags.id}:${tags["tmi-sent-ts"]}`,
 				text: parseMessage(message, tags.emotes),
 				name: tags["display-name"],
 				color: tags.color || "#eee",
 				badges: tags.badges ?? {},
 				highlight: tags.id === "highlighted-message",
 				timestamp: tags["tmi-sent-ts"],
+				type: tags["message-type"],
 			};
 			addMessage(data);
 		});
+		client.on("announcement", console.log);
 		client.on("clearchat", () => {
 			const messages = document.getElementsByClassName("message");
 			for (const message of messages) {
-				message.style.opacity = 0.5;
+				message.style.opacity = 0.15;
 			}
 		});
 		client.on("messagedeleted", (channel, username, deletedMessage, tags) => {
 			const id = tags["target-msg-id"];
-			const message = document.querySelectorAll(".message").find((m) => m.id.includes(id));
+			const message = Array.from(document.querySelectorAll(".message")).find((m) => m.id.includes(id));
 			if (message) {
-				message.style.opacity = 0.5;
+				message.style.opacity = 0.15;
 			}
 		});
 		client.on("ban", (channel, username, reason, tags) => {
 			const id = tags["target-user-id"];
-			const messages = document.querySelectorAll(".message").filter((m) => m.id.includes(id));
+			const messages = Array.from(document.querySelectorAll(".message")).filter((m) =>
+				m.id.includes(id)
+			);
 			for (const message of messages) {
-				message.style.opacity = 0.5;
+				message.style.opacity = 0.15;
 			}
 		});
 		client.on("timeout", (channel, username, reason, duration, tags) => {
 			const id = tags["target-user-id"];
-			const messages = document.querySelectorAll(".message").filter((m) => m.id.includes(id));
+			const messages = Array.from(document.querySelectorAll(".message")).filter((m) =>
+				m.id.includes(id)
+			);
 			for (const message of messages) {
-				message.style.opacity = 0.5;
+				message.style.opacity = 0.15;
 			}
 		});
 		client.on("disconnected", (reason) => {

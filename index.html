@@ -17,32 +17,32 @@
 			}
 
 			::-webkit-scrollbar {
-				width: 5px;
+				width: 0px;
 			}
 
 			#chat {
+				overflow-wrap: anywhere;
 				scroll-snap-type: y proximity;
-				/* flex-direction: column-reverse; */
 			}
 
 			#chat > .message {
-				padding: 10px;
+				border-bottom: 1px solid #1d1d1d;
 			}
 
-			#chat > .message:nth-child(odd) {
+			#chat > .message.odd {
 				background-color: #0a0a0a;
 			}
 
-			#chat > .message:nth-child(even) {
+			#chat > .message.even {
 				background-color: #1a1a1a;
-			}
-
-			#chat > .message:last-child {
-				scroll-snap-align: end;
 			}
 
 			#chat > .message.mention {
 				background-color: #411111;
+			}
+
+			#chat > .message:last-child {
+				scroll-snap-align: end;
 			}
 
 			#chat > .message a,
@@ -58,29 +58,38 @@
 			}
 
 			#chat > .message > .user {
-				font-size: 1rem;
 				color: #999;
+				display: inline-flex;
+				align-items: center;
+				font-size: 1rem;
 			}
 
 			#chat > .message > .user > .name {
-				font-weight: bold;
-				font-size: 1.2rem;
+				font-weight: 700;
+				word-break: break-all;
 			}
 
 			#chat > .message > .user > .timestamp {
-				margin-right: 0.6rem;
-				font-size: 0.8rem;
-				color: #4f4f52;
+				color: #53535f;
+				margin-right: 0.5rem;
+			}
+
+			#chat > .message > .user > .badges {
+				display: inline-block;
+			}
+
+			#chat > .message > .user > .badges > img {
+				height: 1rem;
+				margin-right: 0.25rem;
+			}
+
+			#chat > .message > .user::after {
+				content: ":";
+				margin-right: 0.5rem;
 			}
 
 			#chat > .message > .text {
-				font-size: 1rem;
-				word-wrap: break-word;
-			}
-
-			#chat > .message > .text::before {
-				content: ":";
-				margin-right: 0.6rem;
+				vertical-align: bottom;
 			}
 
 			#chat > .message > .text > .emote {
