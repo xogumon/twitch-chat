@@ -236,7 +236,7 @@ window.onload = async function () {
 		}
 	};
 	const disableAllMessages = () => {
-		const messages = document.querySelectorAll("#chat .message");
+		const messages = document.querySelectorAll("#chat .message:not(.log)");
 		for (const message of messages) {
 			message.classList.add("disabled");
 		}
@@ -344,7 +344,7 @@ window.onload = async function () {
 			data.message = unescapeHtml(data.message);
 			data["user-type"] = userType;
 			data.channel = channel;
-			data.username = username.match(/^[\w]+/)?.join("");
+			data.username = username?.match(/^[\w]+/)?.join("");
 			if (data.message) parsedMessages.push(data);
 		}
 		return parsedMessages;
