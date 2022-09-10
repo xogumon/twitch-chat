@@ -167,8 +167,8 @@ window.onload = async function () {
 		div.id =
 			data.id === "highlighted-message" ? `highlight-${data["tmi-sent-ts"]}` : `message-${data.id}`;
 		div.dataset.id = data.id;
-		div.dataset.timestamp = data.timestamp;
-		div.dataset.userName = data.username;
+		div.dataset.timestamp = data["tmi-sent-ts"];
+		div.dataset.userName = data.username || data["display-name"];
 		div.dataset.userId = data["user-id"];
 		div.classList.add("message", data["message-type"]);
 		if (data.message.split(" ").some((word) => word === new RegExp(`^@?${channel}$`, "i"))) {
@@ -187,6 +187,7 @@ window.onload = async function () {
 			reply.innerHTML = `<span class="reply-parent-user">${data["reply-parent-user-name"]}</span> <span class="reply-parent-message">${data["reply-parent-msg-body"]}</span>`;
 			div.appendChild(reply);
 		}
+		div.style.borderLeftColor = data.color;
 		const user = document.createElement("span");
 		user.classList.add("user");
 		const timestamp = document.createElement("span");
