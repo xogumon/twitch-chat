@@ -1,4 +1,10 @@
-function onDomChange(target, callback) {
+function onDomChange(target, callback, config) {
+	config = config || {
+		attributes: true,
+		characterData: true,
+		childList: true,
+		subtree: true,
+	};
 	if (!target) return;
 	if (typeof target === "string") target = document.querySelector(target);
 	const observer = new MutationObserver(function (mutations) {
@@ -6,12 +12,7 @@ function onDomChange(target, callback) {
 			callback(mutation);
 		});
 	});
-	observer.observe(target, {
-		attributes: true,
-		characterData: true,
-		childList: true,
-		subtree: true,
-	});
+	observer.observe(target, config);
 }
 window.onload = async function () {
 	let firstLoad = true;
@@ -21,9 +22,6 @@ window.onload = async function () {
 	const token = localStorage.getItem("twitch-token");
 	const thirdPartyEmotes = {};
 	const cachedBadges = {};
-	const scroll = () => {
-		//document.scrollingElement.scrollTop = document.scrollingElement.scrollHeight;
-	};
 	const htmlEscape = (str) =>
 		str.replace(
 			/[&<>"'\\]/g,
@@ -236,7 +234,6 @@ window.onload = async function () {
 		text.innerHTML = parseMessage(data.message, data.emotes);
 		div.appendChild(text);
 		chat.appendChild(div);
-		scroll();
 	};
 	const disableUserMessage = (id) => {
 		const message = document.querySelector(`#chat .message[data-id="${id}"]`);
@@ -262,7 +259,6 @@ window.onload = async function () {
 		div.classList.add("message", "log");
 		div.innerText = message;
 		chat.appendChild(div);
-		scroll();
 	};
 	const updateChannelStatus = async () => {
 		await fetch("https://api.twitch.tv/helix/streams", {
@@ -494,19 +490,25 @@ window.onload = async function () {
 			console.log("* Reconnecting...");
 		});
 	}
-	onDomChange("#chat", (mutation) => {
-		console.log("DOM changed!", mutation);
-		const messages = Array.from(document.querySelectorAll("#chat .message"));
-		if (messages.length > 0) {
-			messages.forEach((message) => {
-				Array.from(message.querySelectorAll("[title]")).map(
-					(tooltip) => new bootstrap.Tooltip(tooltip)
-				);
-			});
-			const lastMessage = messages.pop();
-			if (lastMessage) {
-				lastMessage.scrollIntoView();
+	onDomChange(
+		"#chat",
+		(mutation) => {
+			const addedMessages = Array.from(mutation.addedNodes).filter((node) =>
+				node.classList?.contains("message")
+			);
+			const removedMessages = Array.from(mutation.removedNodes).filter((node) =>
+				node.classList?.contains("message")
+			);
+			if (addedMessages.length > 0) {
+				addedMessages.forEach((message) => {
+					Array.from(message.querySelectorAll("[title]")).forEach((element) => {
+						new bootstrap.Tooltip(element);
+					});
+				});
+				const lastMessage = addedMessages.pop();
+				if (lastMessage) lastMessage.scrollIntoView();
 			}
-		}
-	});
+		},
+		{ childList: true }
+	);
 };
