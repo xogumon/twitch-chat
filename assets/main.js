@@ -330,7 +330,8 @@ window.onload = async function () {
 					}
 					return acc;
 				}, {}) || {};
-			const [userType, _, msgType, channel, ...textMessage] = data["user-type"]?.split(/\s:?/) || [];
+			const [userType, username, msgType, channel, ...textMessage] =
+				data["user-type"]?.split(/\s:?/) || [];
 			data.message = textMessage?.join(" ");
 			const actionMessage = data.message?.match(actionMessageRegex);
 			if (actionMessage) {
@@ -343,6 +344,7 @@ window.onload = async function () {
 			data.message = unescapeHtml(data.message);
 			data["user-type"] = userType;
 			data.channel = channel;
+			data.username = username.match(/^[\w]+/)?.join("");
 			if (data.message) parsedMessages.push(data);
 		}
 		return parsedMessages;

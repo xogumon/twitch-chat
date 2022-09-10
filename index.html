@@ -29,7 +29,7 @@
 				align-items: center;
 				display: inline-block;
 				padding: 1rem;
-				border: 0.3rem solid transparent;
+				border: 0.1rem solid transparent;
 				border-top: 0 none;
 				border-bottom-width: 1px !important;
 				border-bottom-color: #1d1d1d !important;
@@ -69,10 +69,13 @@
 			}
 
 			#chat > .message.disabled {
-				opacity: 0.15;
-				cursor: default;
-				filter: grayscale(100%);
+				opacity: 0.1;
+				filter: grayscale(100%) blur(0.1rem);
 				position: relative;
+			}
+
+			#chat > .message.disabled:hover {
+				filter: none;
 			}
 
 			#chat > .message.disabled::after {
@@ -82,7 +85,6 @@
 				left: 0;
 				width: 100%;
 				height: 100%;
-				filter: blur(0.1rem);
 			}
 
 			#chat > .message:last-child {
@@ -136,10 +138,6 @@
 
 			#chat > .message.action > .text {
 				font-style: italic;
-			}
-
-			#chat > .message > .text > .emote {
-				height: 1.2rem;
 			}
 		</style>
 	</head>
