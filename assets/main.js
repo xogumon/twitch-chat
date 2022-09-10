@@ -505,8 +505,7 @@ window.onload = async function () {
 						new bootstrap.Tooltip(element);
 					});
 				});
-				const lastMessage = addedMessages.pop();
-				if (lastMessage) lastMessage.scrollIntoView();
+				addedMessages.pop()?.scrollIntoView();
 			}
 		},
 		{ childList: true }
