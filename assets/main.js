@@ -157,7 +157,7 @@ window.onload = async function () {
 		return text;
 	};
 	const addMessage = (data) => {
-		const messages = Array.from(chat.querySelectorAll(".message"));
+		const messages = Array.from(document.querySelectorAll("#chat .message"));
 		if (messages.length > limit) {
 			messages.shift().remove();
 		}
@@ -222,8 +222,8 @@ window.onload = async function () {
 		chat.appendChild(div);
 		scroll();
 	};
-	const disableMessage = (id) => {
-		const message = document.querySelector(`#chat #message-${id}`);
+	const disableUserMessage = (id) => {
+		const message = document.querySelector(`#chat .message[data-id="${id}"]`);
 		if (message) {
 			message.classList.add("disabled");
 		}
@@ -453,7 +453,7 @@ window.onload = async function () {
 			log("Chat limpo!");
 		});
 		client.on("messagedeleted", (channel, username, deletedMessage, tags) => {
-			disableMessage(tags["target-msg-id"]);
+			disableUserMessage(tags["target-msg-id"]);
 			log(`Mensagem de ${username} deletada!`);
 			console.log(`* Message deleted: ${deletedMessage}`);
 		});
