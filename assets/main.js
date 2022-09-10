@@ -1,3 +1,18 @@
+function onDomChange(target, callback) {
+	if (!target) return;
+	if (typeof target === "string") target = document.querySelector(target);
+	const observer = new MutationObserver(function (mutations) {
+		mutations.forEach(function (mutation) {
+			callback(mutation);
+		});
+	});
+	observer.observe(target, {
+		attributes: true,
+		characterData: true,
+		childList: true,
+		subtree: true,
+	});
+}
 window.onload = async function () {
 	let firstLoad = true;
 	const limit = 50;
@@ -7,7 +22,7 @@ window.onload = async function () {
 	const thirdPartyEmotes = {};
 	const cachedBadges = {};
 	const scroll = () => {
-		document.scrollingElement.scrollTop = document.scrollingElement.scrollHeight;
+		//document.scrollingElement.scrollTop = document.scrollingElement.scrollHeight;
 	};
 	const htmlEscape = (str) =>
 		str.replace(
@@ -479,4 +494,19 @@ window.onload = async function () {
 			console.log("* Reconnecting...");
 		});
 	}
+	onDomChange("#chat", (mutation) => {
+		console.log("DOM changed!", mutation);
+		const messages = Array.from(document.querySelectorAll("#chat .message"));
+		if (messages.length > 0) {
+			messages.forEach((message) => {
+				Array.from(message.querySelectorAll("[title]")).map(
+					(tooltip) => new bootstrap.Tooltip(tooltip)
+				);
+			});
+			const lastMessage = messages.pop();
+			if (lastMessage) {
+				lastMessage.scrollIntoView();
+			}
+		}
+	});
 };
