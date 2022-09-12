@@ -180,9 +180,11 @@ window.onload = async function () {
 		div.id =
 			data.id === "highlighted-message" ? `highlight-${data["tmi-sent-ts"]}` : `message-${data.id}`;
 		div.dataset.id = data.id;
+		div.dataset.message = data.message;
 		div.dataset.timestamp = data["tmi-sent-ts"];
-		div.dataset.userName = data.username || data["display-name"];
+		div.dataset.userName = data.username || data["display-name"].toLowerCase();
 		div.dataset.userId = data["user-id"];
+		div.dataset.userType = data["user-type"];
 		div.classList.add("message", data["message-type"]);
 		if (data.message.split(" ").some((word) => new RegExp(`^@?${channel}$`, "i").test(word))) {
 			div.classList.add("mention");
@@ -206,7 +208,7 @@ window.onload = async function () {
 					<path fill-rule="evenodd" clip-rule="evenodd" d="M8 14L10 12H13C13.5523 12 14 11.5523 14 11V3C14 2.44772 13.5523 2 13 2H3C2.44772 2 2 2.44772 2 3V11C2 11.5523 2.44772 12 3 12H6L8 14ZM6.82843 10H4V4H12V10H9.17157L8 11.1716L6.82843 10Z"></path>
 				</g>
 			</svg>
-			Respondendo a <span class="reply-parent-user">@${data["reply-parent-user"]}</span>:
+			Respondendo a <span class="reply-parent-user">@${data["reply-parent-display-name"]}</span>:
 			<span class="reply-parent-message">${data["reply-parent-msg-body"]}</span>
 			`;
 			div.appendChild(reply);
